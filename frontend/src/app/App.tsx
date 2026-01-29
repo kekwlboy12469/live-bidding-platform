@@ -3,9 +3,9 @@ import io from "socket.io-client";
 import { AuctionCard, AuctionStatus } from "@/app/components/auction-card";
 
 // Connect to backend socket server
-const socket = io("http://localhost:4000");
-// For Docker networking - use backend container name
-const socket = io('http://host.docker.internal:4000');
+const socket = io(import.meta.env.VITE_SOCKET_URL);
+
+
 type Bid = {
   amount: number;
   user: string;

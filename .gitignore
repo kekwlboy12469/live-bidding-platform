@@ -1,0 +1,19 @@
+# Node
+node_modules/
+**/node_modules/
+
+# Vite
+.vite/
+dist/
+
+# Env
+.env
+.env.*
+
+# Logs
+npm-debug.log*
+pnpm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
