@@ -2,6 +2,8 @@ import express from "express";
 import http from "http";
 import { Server } from "socket.io";
 import { items as importedItems } from "./items.js";
+import cors from "cors";
+
 
 // Setup express + websockets
 const app = express();
