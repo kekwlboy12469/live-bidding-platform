@@ -4,26 +4,50 @@ import { Server } from "socket.io";
 import { items as importedItems } from "./items.js";
 import cors from "cors";
 
-
 // Setup express + websockets
 const app = express();
 const server = http.createServer(app);
 const users = {};
-app.use(cors());
 
 
+const ALLOWED_ORIGINS = [
+  "http://localhost:5173",
+  "http://localhost:3000",
+  "https://live-bidding-platform-beta.vercel.app",
+  
+  
+];
+
+// ✅ Express CORS 
+app.use(
+  cors({
+    origin: (origin, cb) => {
+      if (!origin) return cb(null, true); // allow Postman/curl
+      if (ALLOWED_ORIGINS.includes(origin)) return cb(null, true);
+      return cb(new Error("CORS blocked: " + origin));
+    },
+    methods: ["GET", "POST"],
+    credentials: true,
+  })
+);
+
+// ✅ Socket.IO CORS 
 const io = new Server(server, {
   cors: {
-    origin: "*",
-    methods: ["GET", "POST"]
-  }
+    origin: (origin, cb) => {
+      if (!origin) return cb(null, true);
+      if (ALLOWED_ORIGINS.includes(origin)) return cb(null, true);
+      return cb(new Error("Socket.IO CORS blocked: " + origin));
+    },
+    methods: ["GET", "POST"],
+    credentials: true,
+  },
 });
 
 // How long each auction lasts (in milliseconds)
 const AUCTION_DURATION = 2 * 60 * 1000; // 2 minutes
 
 // Build server items from the canonical `items.js` file and normalize fields
-// This lets us use the items.js file as the single source of truth
 const items = Object.fromEntries(
   Object.entries(importedItems).map(([key, it]) => {
     const image = (it.image ?? "").toString().trim();
@@ -39,50 +63,54 @@ const items = Object.fromEntries(
         endsAt: it.endTime ?? it.endsAt ?? Date.now() + AUCTION_DURATION,
         ended: it.ended ?? false,
         winner: it.winner ?? null,
-        highestBidder: it.highestBidder ?? null
-      }
+        highestBidder: it.highestBidder ?? null,
+      },
     ];
   })
 );
 
 // When someone connects
-io.on("connection", socket => {
+io.on("connection", (socket) => {
   const userId = `user_${Math.floor(Math.random() * 1000)}`;
+
   // Give each user a starting wallet
   users[userId] = users[userId] || 5000;
 
   // Send user their ID and wallet
   socket.emit("USER_INIT", {
     userId,
-    wallet: users[userId]
+    wallet: users[userId],
   });
-  console.log("✅ User connected:", socket.id);
+
+  console.log("✅ User connected:", socket.id, "as", userId);
 
   // Send all auction items with server timestamp
   socket.emit("init", {
     items,
-    serverTime: Date.now()
+    serverTime: Date.now(),
   });
 
   // Handle incoming bids
   socket.on("BID_PLACED", ({ itemId, amount }) => {
     const userWallet = users[userId];
-    
+
     // Check if user has enough money
     if (userWallet < amount) {
       socket.emit("BID_REJECTED", { itemId, reason: "Insufficient funds" });
       return;
     }
-    
+
     const item = items[itemId];
+
     // Check if item exists and auction is still going
     if (!item || Date.now() > item.endsAt || amount <= item.price) {
       socket.emit("BID_REJECTED", { itemId, reason: "Invalid bid" });
       return;
     }
 
-    // Deduct money from wallet
-    users[userId] -= 10; // only deduct increment, not full amount
+    // Deduct money from wallet (increment only)
+    users[userId] -= 10;
+
     // Update item price and record the bid
     item.price = amount;
     item.highestBidder = userId;
@@ -93,7 +121,7 @@ io.on("connection", socket => {
 
     // Confirm to bidder
     socket.emit("BID_ACCEPTED", {
-      wallet: users[userId]
+      wallet: users[userId],
     });
   });
 
@@ -106,27 +134,22 @@ io.on("connection", socket => {
 setInterval(() => {
   const now = Date.now();
 
-  Object.values(items).forEach(item => {
-    // Mark as ended if time is up
+  Object.values(items).forEach((item) => {
     if (!item.ended && now >= item.endsAt) {
       item.ended = true;
-      // Winner is the person with the last bid
       item.winner = item.bids.at(-1) || null;
 
-      // Broadcast that auction ended
       io.emit("auctionEnded", {
         itemId: item.id,
         winner: item.winner,
-        serverTime: Date.now()
+        serverTime: Date.now(),
       });
     }
   });
 }, 1000);
 
 const PORT = process.env.PORT || 4000;
-
 server.listen(PORT, () => {
   console.log(`🎯 Auction server running on port ${PORT}`);
 });
-
 
