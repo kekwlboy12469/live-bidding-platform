@@ -19,7 +19,14 @@ A real-time live auction platform built with **React + Socket.IO + Node.js**, fe
 ##  Live Demo
 - Frontend: https://live-bidding-platform-beta.vercel.app
 - Backend: https://live-bidding-platform-uq3u.onrender.com
+- Video :  https://github.com/user-attachments/assets/579db502-553e-4b1d-b289-dccab5e8078e
+
+
 
 ##  Run Locally (Docker)
 ```bash
 docker compose up --build
+
+
+
+
