@@ -7,9 +7,14 @@ import { items as importedItems } from "./items.js";
 const app = express();
 const server = http.createServer(app);
 const users = {};
+app.use(cors());
+
 
 const io = new Server(server, {
-  cors: { origin: "*" }
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"]
+  }
 });
 
 // How long each auction lasts (in milliseconds)
