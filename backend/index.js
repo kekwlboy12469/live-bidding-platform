@@ -14,7 +14,7 @@ const ALLOWED_ORIGINS = [
   "http://localhost:5173",
   "http://localhost:3000",
   "https://live-bidding-platform-beta.vercel.app",
-  
+
   
 ];
 
@@ -129,6 +129,16 @@ io.on("connection", (socket) => {
     console.log("❌ User disconnected:", socket.id);
   });
 });
+function resetAuction(item) {
+  // If you have a starting price stored, use it. Otherwise 0 is ok.
+  item.price = item.startingPrice ?? 0;
+
+  item.bids = [];
+  item.ended = false;
+  item.winner = null;
+  item.highestBidder = null;
+  item.endsAt = Date.now() + AUCTION_DURATION;
+}
 
 // Check every second if any auctions have ended
 setInterval(() => {
@@ -142,12 +152,17 @@ setInterval(() => {
       io.emit("auctionEnded", {
         itemId: item.id,
         winner: item.winner,
-        serverTime: Date.now(),
+        serverTime: Date.now()
       });
+
+      // ⏳ Auto-restart auction after 10 seconds
+      setTimeout(() => {
+        resetAuction(item);
+        io.emit("UPDATE_BID", item);
+      }, 10_000);
     }
   });
 }, 1000);
-
 const PORT = process.env.PORT || 4000;
 server.listen(PORT, () => {
   console.log(`🎯 Auction server running on port ${PORT}`);
